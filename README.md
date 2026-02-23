@@ -13,14 +13,19 @@ Qifan Zhang, Sai Haneesh Allu, Jikai Wang, Yangxiao Lu, Yu Xiang
 ## Framework
 ![L2G.](assets/Framework.png)
 
-## Detection Example
-<h1 align="center">📸 Demo Detection Results on RoboTools</h1>
+## 📸 Detection Examples
 
-![Demo detection results on RoboTools.](assets/RoboTools.png)
+### RoboTools
 
+<p align="center">
+  <img src="assets/RoboTools.png" width="85%">
+</p>
 
-<h1 align="center">📸 Demo detection results on High_Resolution</h1>
-![Demo detection results on High_Resolution.](assets/High_Res.png)
+### High Resolution
+
+<p align="center">
+  <img src="assets/High_Res.png" width="85%">
+</p>
 
 
 ## Getting Started
