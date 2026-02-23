@@ -1,0 +1,65 @@
+# L2G_configs/High_Res.yaml
+
+# =========================
+#   DATA SETTINGS
+# =========================
+data:
+  datasets: "High_Resolution"
+  patch_size: 16          # 16 for DINOv3, 14 for DINOv2
+  image_size: 1536         # 768 for RoboTools, 1536 for high-res datasets
+  imagenet_mean: [0.485, 0.456, 0.406]
+  imagenet_std:  [0.229, 0.224, 0.225]
+  mask_fg_threshold: 0.5
+  m_target: 20      # number of target patches selected inside mask region
+  n_objects: 100
+  template_images_path: "data/Templates/objects_high_resolution_4"
+  query_path: "data/Query/High_Resolution"
+
+# =========================
+#   SAM SETTINGS
+# =========================
+sam:
+  checkpoint: "checkpoints/SAM/sam2.1_hiera_large.pt"
+  model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
+  use_augmented_predictor: true        # inject object tokens or not
+  token_dir: "checkpoints/Object_tokens_High_Res"
+
+
+# =========================
+#   DINO SETTINGS
+# =========================
+dino:
+  repo_dir: "./dinov3"
+  model_name: "dinov3_vitl16"
+  checkpoint: "checkpoints/dinov3/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth"
+
+  model_to_num_layers:
+    dinov3_vits16: 12
+    dinov3_vits16plus: 12
+    dinov3_vitb16: 12
+    dinov3_vitl16: 24
+    dinov3_vith16plus: 32
+    dinov3_vit7b16: 40
+
+    dinov2_vits14: 12
+    dinov2_vitb14: 12
+    dinov2_vitl14: 24
+    dinov2_vitg14: 40
+
+
+# =========================
+#   ADAPTER SETTINGS
+# =========================
+adapter:
+  use_pe_adapter: true
+  pe_adapter_ckpt: "checkpoints/Adapter/High_Res_Adapter.pt"
+  use_which_feature: "pe_feature"   # "pe_feature" | "dino_cls" | "only_Dense"
+
+
+# =========================
+#   POST PROCESSING
+# =========================
+post_processing:
+  use_local_view: true                          #High-resolution images can use local field of view to improve detection performance.
+  use_fps_filter: false                         #Farthest Point Sampling (FPS)
+  save_images: false                            #Saving the detection_images
