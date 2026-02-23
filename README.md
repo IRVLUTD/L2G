@@ -18,13 +18,13 @@ Qifan Zhang, Sai Haneesh Allu, Jikai Wang, Yangxiao Lu, Yu Xiang
 ### RoboTools
 
 <p align="center">
-  <img src="assets/RoboTools.png" width="85%">
+  <img src="assets/RoboTools.png" width="100%">
 </p>
 
 ### High Resolution
 
 <p align="center">
-  <img src="assets/High_Res.png" width="85%">
+  <img src="assets/High_Res.png" width="100%">
 </p>
 
 
@@ -44,36 +44,46 @@ We test the code on Ubuntu 20.04.
 ### Preparing Datasets
 <details>
 <summary> Setting Up 4 Detection Datasets </summary>
-We do not need training datasets for detectors. We can use template embeddings to train the adapter.
 
-#### High-resolution Dataset
-This [instance-detection repo](https://github.com/insdet/instance-detection) provide the [InsDet-Full](https://drive.google.com/drive/folders/1rIRTtqKJGCTifcqJFSVvFshRb-sB0OzP).
-```shell
-cd $ROOT
-ln -s $HighResolution_DATA database
+
+#### Dataset
+
+Please put them into "Data" folder as follows:
 ```
-We provide the preprocessed testing images in this [link](https://utdallas.box.com/s/bfcgn0dpbvu5w5be20wyj41fzsjajh4h) accorinding to this [instance-detection](https://github.com/insdet/instance-detection). Please put them into "Data" folder as follows:
-```
-database
+data/
 │
-└───Background
+├── Query/
+│   ├── High_Resolution/
+│   │   ├── 000001/
+│   │   ├── 000002/
+│   │   └── ...
+│   │
+│   └── RoboTools/
+│       ├── 000001/
+│       ├── 000002/
+│       └── ...
 │
-└───Objects
-│   │
-│   └───000_aveda_shampoo
-│   │   │   images
-│   │   │   masks
-│   │
-│   └───001_binder_clips_median
-│       │   images
-│       │   masks
-│       │   ...
-│   
-│   
-└───Data
-    │   test_1_all
-    │   test_1_easy
-    │   test_1_hard
+└── Templates/
+    ├── High_Resolution/
+    │   ├── rgb/
+    │   │   ├── 000001/
+    │   │   ├── 000002/
+    │   │   └── ...
+    │   └── mask/
+    │       ├── 000001/
+    │       ├── 000002/
+    │       └── ...
+    │
+    └── RoboTools/
+        ├── rgb/
+        │   ├── 000001/
+        │   ├── 000002/
+        │   └── ...
+        │
+        └── mask/
+            ├── 000001/
+            ├── 000002/
+            └── ...
 ```
 
 
