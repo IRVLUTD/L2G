@@ -38,7 +38,14 @@ We prepare demo google colabs: [inference on a high-resolution image](https://co
 ### Installation
 We test the code on Ubuntu 20.04.
 ```sh
-
+git clone https://github.com/IRVLUTD/L2G.git
+cd L2G
+# Create the conda env
+conda create -n L2G python=3.10
+# Install PyTorch
+pip install torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 --index-url https://download.pytorch.org/whl/cu118
+# Install other packages
+pip install -e.
 ```
 
 ### Preparing Datasets
@@ -46,7 +53,7 @@ We test the code on Ubuntu 20.04.
 <summary> Setting Up 4 Detection Datasets </summary>
 
 
-#### Dataset
+#### Datasets
 
 Please put them into "Data" folder as follows:
 ```

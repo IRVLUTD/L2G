@@ -3,17 +3,25 @@
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
+
+# Modifications Copyright (c) 2026 Qifan Zhang
+# Modified by Qifan Zhang for the L2G project.
+# Changes include:
+# - Renamed the package for integration into L2G-Net
+# - Added additional modules and project-specific components
+# Licensed under the Apache License, Version 2.0.
+
 import os
 
 from setuptools import find_packages, setup
 
 # Package metadata
-NAME = "SAM-2"
+NAME = "L2G-Net"
 VERSION = "1.0"
-DESCRIPTION = "SAM 2: Segment Anything in Images and Videos"
-URL = "https://github.com/facebookresearch/sam2"
-AUTHOR = "Meta AI"
-AUTHOR_EMAIL = "segment-anything@meta.com"
+DESCRIPTION = "From Local Matches to Global Masks: Novel Instance Detection in Open-World Scenes"
+URL = "https://github.com/IRVLUTD/L2G"
+AUTHOR = "IRVL"
+AUTHOR_EMAIL = "qxz180010@utdallas.edu"
 LICENSE = "Apache 2.0"
 
 # Read the contents of README file
@@ -29,6 +37,12 @@ REQUIRED_PACKAGES = [
     "hydra-core>=1.3.2",
     "iopath>=0.1.10",
     "pillow>=9.4.0",
+    "opencv-python==4.10.0.84",
+    "einops==0.8.1",
+    "timm==1.0.15",
+    "ftfy",
+    "regex",
+    "matplotlib=3.10.0",
 ]
 
 EXTRA_PACKAGES = {
