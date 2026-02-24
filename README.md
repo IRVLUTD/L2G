@@ -1,10 +1,9 @@
-# L2G
+# L2G-Det
 
 
 
 **From Local Matches to Global Masks: Novel Instance Detection in Open-World Scenes**
 
-Qifan Zhang, Sai Haneesh Allu, Jikai Wang, Yangxiao Lu, Yu Xiang
 
 [arXiv](), [Project]()
 
@@ -163,6 +162,21 @@ python run.py --config RoboTools.yaml  #or High_Res.yaml
 ```
 
 We include the ground truth files and our predictions in this [link](https://utdallas.box.com/s/3cc1gcohdluudc37ezcebf5nj9szdur9). You can run [eval_results.py](tools/eval_results.py) to evaluate them.
+
+
+### Create the template-based training images
+
+Download the background with the [link](https://utdallas.box.com/s/x0a2b5mmaz8e5dt72046qa9g0jpb0567).
+
+```sh
+cd tools
+python Compose_objects.py \
+  --objects-root ../data/Templates/RoboTools_all \       
+  --backgrounds Background \     
+  --epoch 2
+```
+
+
 
 ## Acknowledgments
 
