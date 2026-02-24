@@ -5,18 +5,21 @@ from pycocotools.cocoeval import COCOeval
 
 
 
-# test RoboTools all
-# cocoGt = COCO("../data/Ground_Truth/RoboTools/scene_gt_coco_all.json")
-# cocoDt = cocoGt.loadRes("../Output/RoboTools/merged_coco.json")
+# test RoboTools
+cocoGt = COCO("../eval_results/Ground_Truth/RoboTools/scene_gt_coco_all.json")
+cocoDt = cocoGt.loadRes("../eval_results/Results_COCO/RoboTools/L2G_all.json")
 
+# #test High_Resolution all
+# cocoGt = COCO("../eval_results/Ground_Truth/High_Resolution/scene_gt_coco_all.json")
+# cocoDt = cocoGt.loadRes("../eval_results/Results_COCO/High_Resolution/L2G_all.json")
 
-#test High_Resolution all
-cocoGt = COCO("../data/Ground_Truth/High_Resolution/scene_gt_coco_all.json")
-cocoDt = cocoGt.loadRes("../data/Results_COCO/High_Resolution/adapter=True_SAM*=True.json")
+# #test High_Resolution hard
+# cocoGt = COCO("../eval_results/Ground_Truth/High_Resolution/scene_gt_coco_hard.json")
+# cocoDt = cocoGt.loadRes("../eval_results/Results_COCO/High_Resolution/L2G_hard.json")
 
-#test High_Resolution
-cocoGt = COCO("../data/Ground_Truth/High_Resolution/scene_gt_coco_hard.json")
-cocoDt = cocoGt.loadRes("../data/Results_COCO/High_Resolution/hard.json")
+# #test High_Resolution easy
+# cocoGt = COCO("../eval_results/Ground_Truth/High_Resolution/scene_gt_coco_easy.json")
+# cocoDt = cocoGt.loadRes("../eval_results/Results_COCO/High_Resolution/L2G_easy.json")
 
 cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
 
