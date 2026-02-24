@@ -184,7 +184,7 @@ def main(cfg: TrainConfig):
 
             # Forward image encoder
 
-            # A) 图像预处理（等价于 predictor.set_image() 的变换）
+            # A) Prepocess image（predictor.set_image()）
             # ✅ ensure numpy HWC uint8 / HW uint8
             if isinstance(image, torch.Tensor): image = image.cpu().numpy()
             if isinstance(mask, torch.Tensor):  mask  = mask.cpu().numpy()
@@ -193,9 +193,7 @@ def main(cfg: TrainConfig):
             image = image.astype(np.uint8, copy=False)
             mask  = (mask > 0).astype(np.uint8, copy=False)
 
-            # --- 跳过空前景的样本 ---  # NEW
-            if mask.sum() == 0:
-                # 可选：打印一次便于排查
+            if mask.sum() == 0
                 # print(f"[skip] empty mask sample at step {step_}")
                 continue
 
@@ -204,7 +202,6 @@ def main(cfg: TrainConfig):
             input_image = transforms(image)       # (3,H',W'), 已做 resize/normalize/pad
             input_image = input_image.unsqueeze(0).to(device)  # (1,3,H',W')
 
-            # B) 前向 backbone
             backbone_out = model.forward_image(input_image)
 
             fmaps = backbone_out["backbone_fpn"][-model.num_feature_levels:]
@@ -213,7 +210,7 @@ def main(cfg: TrainConfig):
             if model.use_high_res_features_in_sam:
                 high_res_features = [backbone_out["backbone_fpn"][0], backbone_out["backbone_fpn"][1]]
 
-            # ---- 点坐标映射（原图像素坐标 -> 模型输入像素坐标）----
+    
             # H, W = mask.shape
 
             # orig_h, orig_w = H, W
@@ -223,13 +220,13 @@ def main(cfg: TrainConfig):
             # point_coords[..., 0].clamp_(0, model.image_size - 1)
             # point_coords[..., 1].clamp_(0, model.image_size - 1)
             # point_labels = torch.tensor([[1]], dtype=torch.int32, device=device)
-            # ---- 点坐标映射（原图像素坐标 -> 模型输入像素坐标）----
+       
 
-            # 40%: 1点；20%: 2点；20%: 3点；20%: 4点（都从mask内部随机取）
+   
             H, W = mask.shape
             orig_h, orig_w = H, W
 
-            # 40%: 1点；20%: 2点；20%: 3点；20%: 4点（都从mask内部随机取）
+     
             r = random.random()
             k = 1 if r < 0.2 else (2 if r < 0.4 else (3 if r < 0.6 else 4))
             #k = 1 if r < 0.5 else (2 if r < 0.75 else 3)
@@ -241,9 +238,9 @@ def main(cfg: TrainConfig):
             point_coords[..., 0].clamp_(0, model.image_size - 1)
             point_coords[..., 1].clamp_(0, model.image_size - 1)
             #print("after point_coords:",point_coords.shape)
-            point_labels = torch.ones((1, k), dtype=torch.int32, device=device)  # 全部正点
+            point_labels = torch.ones((1, k), dtype=torch.int32, device=device)  
 
-            # 40%: 1点；20%: 2点；20%: 3点；20%: 4点（都从mask内部随机取）
+      
 
             # ---- prompt & decoder ----
             sparse_embeddings, dense_embeddings = model.sam_prompt_encoder(
@@ -260,7 +257,7 @@ def main(cfg: TrainConfig):
                 repeat_image=False,
                 high_res_features=high_res_features,
             )
-            logits = masks_pred[:, :1]  # [B,1,h,w]（h 通常是 256）
+            logits = masks_pred[:, :1]  # [B,1,h,w]
             if (logits.shape[-2] != orig_h) or (logits.shape[-1] != orig_w):
                 logits = F.interpolate(logits, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
 
