@@ -28,8 +28,10 @@ Qifan Zhang, Sai Haneesh Allu, Jikai Wang, Yangxiao Lu, Yu Xiang
 </p>
 
 
+
+
 ## Getting Started
-We prepare demo google colabs: [inference on a high-resolution image](https://colab.research.google.com/drive/1dtlucQ5QryLgooSDkH-Qumxrrnb-9FCg?usp=sharing) and [Training free one-shot detection](https://colab.research.google.com/drive/1IM8TgpNo_9TijopO3PRyZea7MgTUjv30?usp=sharing). 
+ 
 ### Prerequisites
 - Python 3.10
 - torch (tested 2.6)
@@ -42,18 +44,57 @@ git clone https://github.com/IRVLUTD/L2G.git
 cd L2G
 # Create the conda env
 conda create -n L2G python=3.10
+conda activate L2G
 # Install PyTorch
 pip install torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 --index-url https://download.pytorch.org/whl/cu118
 # Install other packages
 pip install -e.
 ```
 
+### Preparing models
+
+- [Dinov3](https://utdallas.box.com/s/5sq36cepn1ixw6nqvisj4s5rflyzu7zr)
+- [SAM](https://utdallas.box.com/s/32q46julpez5upv8dscvkizkpkcyhl93)
+- [Adapter](https://utdallas.box.com/s/114ci0k68mtrcwyt6uoq34nye1obzscu)
+- [Object_tokens](https://utdallas.box.com/s/omqe0hisharujwk9uc2h6hx3btcli4kn)
+
+Please put them into "checkpoints" folder as follows:
+```
+checkpoints/
+├── dinov3/
+│   └── dinov3_vitl16_pretrain_*.pt
+│
+├── SAM/
+│   └── sam2.1_hiera_large.pt
+│
+├── Adapter/
+│   ├── High_Res_Adapter.pt
+│   └── RoboTools_Adapter.pt
+│
+├── Object_tokens_High_Res/
+│   ├── full_mask_tokens_000001.pt
+│   ├── full_mask_tokens_000002.pt
+│   ├── ...
+│
+└── Object_tokens_RoboTools/
+    ├── full_mask_tokens_000001.pt
+    ├── full_mask_tokens_000002.pt
+    ├── ...
+
+```
+
 ### Preparing Datasets
 <details>
-<summary> Setting Up 4 Detection Datasets </summary>
+<summary> Setting Up Detection Datasets </summary>
 
 
-#### Datasets
+#### The RoboTools dataset is divided into 24 scenes (Scene 1–24). Download the dataset: 
+- [Query](https://utdallas.box.com/s/53igfvlqtfg0bl28qnow8eolr2fx4sjk)
+- [Templates](https://utdallas.box.com/s/jnenedqmc7i9ftfawn4adjg3opapqzq1)
+
+#### The High_Resolution dataset is divided into 22 scenes (Hard : Scene 1–10; Easy: Scene 11-22). Download the dataset: 
+- [Query](https://utdallas.box.com/s/h2idi4glitwc0g55mxcx2kk0uhywfk3k)
+- [Templates](https://utdallas.box.com/s/d946h9a0m46sh7hrqlsdgaxdvmjube3q)
 
 Please put them into "Data" folder as follows:
 ```
@@ -71,7 +112,7 @@ data/
 │       └── ...
 │
 └── Templates/
-    ├── High_Resolution/
+    ├── High_Resolution_all/
     │   ├── rgb/
     │   │   ├── 000001/
     │   │   ├── 000002/
@@ -81,7 +122,7 @@ data/
     │       ├── 000002/
     │       └── ...
     │
-    └── RoboTools/
+    └── RoboTools_all/
         ├── rgb/
         │   ├── 000001/
         │   ├── 000002/
@@ -92,18 +133,40 @@ data/
             ├── 000002/
             └── ...
 ```
+</details>
 
+### Usage
+
+#### Demo
+You can directly run the demo:
+```sh
+python run.py --config Demo.yaml
+```
+or check [inference on the image](notebooks/inference_demo.ipynb)
+
+#### Benchmark
+
+Sample the template images: 
+```sh
+cd tools
+
+# --n 8          : Number of templates to sample per object
+# --datasets     : Dataset name (e.g., RoboTools; High_Resolution)
+python sample_templates.py --n 8 --datasets RoboTools
+```
+
+Run L2G on the Benchmark:
+```sh
+python run.py --config RoboTools.yaml  #or High_Res.yaml
+
+# then merge results using tools/utils/merge.py. You can download Ground truth files in the following link.
+```
+
+We include the ground truth files and our predictions in this [link](https://utdallas.box.com/s/3cc1gcohdluudc37ezcebf5nj9szdur9). You can run [eval_results.py](tools/eval_results.py) to evaluate them.
 
 ## Acknowledgments
 
 This project is based on the following repositories:
-- [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
-- [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
-- [CLIP](https://github.com/openai/CLIP)
-- [VoxDet](https://github.com/Jaraxxus-Me/VoxDet)
-- [InsDet](https://github.com/insdet/instance-detection)
-- [SAM](https://github.com/facebookresearch/segment-anything)
-- [DINOv2](https://github.com/facebookresearch/dinov2)
-- [SAM6D](https://github.com/JiehongLin/SAM-6D)
-- [FFA](https://github.com/s-tian/CUTE)
-- [CNOS](https://github.com/nv-nguyen/cnos)
+- [Dinov3](https://github.com/facebookresearch/dinov3)
+- [SAM2](https://github.com/facebookresearch/sam2)
+- [Perception_models](https://github.com/facebookresearch/perception_models)

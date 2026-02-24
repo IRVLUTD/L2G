@@ -12,7 +12,7 @@ data:
   mask_fg_threshold: 0.5
   m_target: 20      # number of target patches selected inside mask region
   n_objects: 100
-  template_images_path: "data/Templates/objects_high_resolution_4"
+  template_images_path: "data/Templates/High_Resolution_4"
   query_path: "data/Query/High_Resolution"
 
 # =========================

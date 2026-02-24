@@ -179,8 +179,8 @@ def build_left_batch_all(groups, SEQ_LEN, device, IMAGE_SIZE, PATCH_SIZE, mean, 
             feat_l, cls_l = out_l[0]
             #feat_l = out_l[-1].detach()  # (B, C, H1, W1)
             feat_l = feat_l.detach()  # (B, C, H1, W1)
-            print("##############The shape of feat_l:",feat_l.shape)
-            print("##############The shape of cls_l:",cls_l.shape)
+            print(f"##### Template {t+1} ##### The shape of feat_l:",feat_l.shape)
+            #print("##############The shape of cls_l:",cls_l.shape)
         feat_l = F.normalize(feat_l, p=2, dim=1)
         C = feat_l.shape[1]
         left_vecs_t = feat_l.permute(0,2,3,1).reshape(B, -1, C)  # (B,K,C)

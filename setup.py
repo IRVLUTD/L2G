@@ -42,10 +42,13 @@ REQUIRED_PACKAGES = [
     "timm==1.0.15",
     "ftfy",
     "regex",
-    "matplotlib=3.10.0",
+    "matplotlib==3.10.0",
 ]
 
 EXTRA_PACKAGES = {
+    "eval": [
+        "pycocotools",
+    ],
     "notebooks": [
         "matplotlib>=3.9.1",
         "jupyter>=1.0.0",

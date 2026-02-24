@@ -191,10 +191,10 @@ def _load_checkpoint(model, ckpt_path):
         # if unexpected_keys:
         #     logging.error(unexpected_keys)
         #     raise RuntimeError()
-        if missing_keys:
-            logging.warning(f"⚠️ Missing keys ignored: {missing_keys}")
-        if unexpected_keys:
-            logging.warning(f"⚠️ Unexpected keys ignored: {unexpected_keys}")
+        # if missing_keys:
+        #     logging.warning(f"⚠️ Missing keys ignored: {missing_keys}")
+        # if unexpected_keys:
+        #     logging.warning(f"⚠️ Unexpected keys ignored: {unexpected_keys}")
         #Adding training part
         
         logging.info("Loaded checkpoint sucessfully")

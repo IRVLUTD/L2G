@@ -12,7 +12,7 @@ data:
   mask_fg_threshold: 0.5
   m_target: 10      # number of target patches selected inside mask region
   n_objects: 20
-  template_images_path: "data/Templates/objects_mul_13"
+  template_images_path: "data/Templates/RoboTools_8"
   query_path: "data/Query/RoboTools"
 
 # =========================
@@ -62,4 +62,4 @@ adapter:
 post_processing:
   use_local_view: false                          #High-resolution images can use local field of view to improve detection performance.
   use_fps_filter: true                           #Farthest Point Sampling (FPS)
-  save_images: true                             #Saving the detection_images
+  save_images: false                             #Saving the detection_images

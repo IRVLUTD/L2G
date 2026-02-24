@@ -22,7 +22,7 @@ data:
 sam:
   checkpoint: "checkpoints/SAM/sam2.1_hiera_large.pt"
   model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
-  use_augmented_predictor: false        # inject object tokens or not
+  use_augmented_predictor: true        # inject object tokens or not
   token_dir: "demo/Object_tokens_Demo"
 
 
