@@ -9,3 +9,6 @@ data/
 checkpoints/
 Output/
 eval_results/
+Backgrounds_original/
+Backgrounds_2048/
+RoboTools_*/

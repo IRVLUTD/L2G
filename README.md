@@ -5,7 +5,7 @@
 **From Local Matches to Global Masks: Novel Instance Detection in Open-World Scenes**
 
 
-[arXiv](), [Project]()
+[arXiv](), [Project](https://irvlutd.github.io/L2G/)
 
 > Detecting and segmenting novel object instances in open-world environments is a fundamental problem in robotic perception. Given only a small set of template images, a robot must locate and segment a specific object instance in a cluttered, previously unseen scene. Existing proposal-based approaches are highly sensitive to proposal quality and often fail under occlusion and background clutter. We propose L2G-Det, a local-to-global instance detection framework that bypasses explicit object proposals by leveraging dense patch-level matching between templates and the query image. Locally matched patches generate candidate points, which are refined through a candidate selection module to suppress false positives. The filtered points are then used to prompt an augmented Segment Anything Model (SAM) with instance-specific object tokens, enabling reliable reconstruction of complete instance masks. Experiments demonstrate improved performance over proposal-based methods in challenging open-world settings.
 
@@ -166,17 +166,27 @@ We include the ground truth files and our predictions in this [link](https://utd
 
 ### Create the template-based training images
 
-Download the background with the [link](https://utdallas.box.com/s/x0a2b5mmaz8e5dt72046qa9g0jpb0567).
+Download the background with the [link](https://utdallas.box.com/s/i5xf5mlyg0vq0ie38f8hksjzdjf1s7y0). Among these, **Backgrounds_2048** is constructed by cropping local regions from the original high-resolution background images, resulting in images of size 2048 × 1536.
 
 ```sh
-cd tools
-python Compose_objects.py \
-  --objects-root ../data/Templates/RoboTools_all \       
-  --backgrounds Background \     
-  --epoch 2
+# Create the template-based training images on RoboTools
+python tools/Compose_objects.py \
+--objects-root data/Templates/RoboTools_all \
+--backgrounds Backgrounds_2048 \
+--out-root RoboTools_create \
+--bbox-out-root RoboTools_create_bbox \
+--start-object-id 1 \
+--end-object-id 20
 ```
 
+### Training
+Check the [training demo](notebooks/Training_demo.ipynb) in notebooks.
 
+
+### Real-World Robot Experiment
+Click the following image to watch the video.
+
+[![Watch the video](assets/exp_nav.png)](https://youtu.be/b9lV50FqkfA)
 
 ## Acknowledgments
 

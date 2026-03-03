@@ -70,8 +70,8 @@ def list_backgrounds(bg_dir: Path):
 def load_object_pair(root_rgb: Path, root_mask: Path, obj_id: int, frame_idx: int):
     obj_name = f"{obj_id:06d}"
     #frame_name_rgb = f"{frame_idx:06d}.jpg"
-    frame_name_rgb = f"{frame_idx:03d}.jpg"
-    frame_name_mask = f"{frame_idx:03d}.png"
+    frame_name_rgb = f"{frame_idx:06d}.png"
+    frame_name_mask = f"{frame_idx:06d}.png"
     rgb_path = root_rgb / obj_name / frame_name_rgb
     mask_path = root_mask / obj_name / frame_name_mask
     if not rgb_path.exists() or not mask_path.exists():
@@ -124,7 +124,7 @@ def maybe_rotate_pair(
 
     angle = rng.uniform(0.0, 360.0)
 
-    # RGB 用 BICUBIC，mask 用 NEAREST
+
     rgb_rot = rgb.rotate(angle, resample=RESAMPLE_BICUBIC, expand=True)
     mask_rot = mask.rotate(angle, resample=RESAMPLE_NEAREST, expand=True)
 
@@ -181,9 +181,7 @@ def area_of_overlap_on_canvas(
     if x1 <= x0 or y1 <= y0:
         return 0
 
-    # 对 A 的局部坐标
     A_sub = A_mask[y0 - Ay : y1 - Ay, x0 - Ax : x1 - Ax]
-    # 对 B 的局部坐标（这里要用 Bx 而不是 Ax）
     B_sub = B_mask[y0 - By : y1 - By, x0 - Bx : x1 - Bx]
 
     return int(((A_sub > 0) & (B_sub > 0)).sum())
@@ -330,7 +328,7 @@ def sample_adjacent_near_tight_bbox(
             other_gx0 = rng.randint(low, high)
             other_gx1 = other_gx0 + o_w
 
-        # bbox non-overlap check (tight bbox 不和 target tight bbox 重合)
+        # bbox non-overlap check 
         inter_w = min(tgt_gx1, other_gx1) - max(tgt_gx0, other_gx0)
         inter_h = min(tgt_gy1, other_gy1) - max(tgt_gy0, other_gy0)
         if inter_w > 0 and inter_h > 0:
@@ -475,7 +473,8 @@ def process_for_object(
     rot_prob: float,
     all_obj_ids: List[int],
     rng: random.Random,
-    num_epochs: int = 1,   # ✅ 新增：epoch 数
+    max_nums: int,
+    num_epochs: int = 1,   
 ):
     out_rgb_dir = out_root / "rgb" / f"{obj_id:06d}"
     out_msk_dir = out_root / "mask" / f"{obj_id:06d}"
@@ -487,15 +486,14 @@ def process_for_object(
     bbox_rgb_dir.mkdir(parents=True, exist_ok=True)
     bbox_msk_dir.mkdir(parents=True, exist_ok=True)
 
-    idx = 0  # 全部 epoch 共享计数
+    idx = 0  
 
     for epoch in range(num_epochs):
-        # 每个 epoch 打乱一次背景顺序
         bg_paths_shuffled = list(bg_paths)
         rng.shuffle(bg_paths_shuffled)
 
         #for bg_path in bg_paths_shuffled:
-        max_bg_per_object = 500  # ★ 新增：每个 object 最多使用的背景数
+        max_bg_per_object = int(max_nums)  
         for bg_path in bg_paths_shuffled[:max_bg_per_object]:
             with Image.open(bg_path) as bg_im:
                 bg = bg_im.convert("RGB")
@@ -553,11 +551,11 @@ def process_for_object(
                 candidate_ids = [i for i in all_obj_ids if i != obj_id]
                 other_ids = rng.sample(candidate_ids, k=min(k, len(candidate_ids)))
 
-                placed = []  # 这里只存放信息，不再检查 others 之间的重叠
+                placed = [] 
                 t_h = tgt_arr.shape[0]
                 t_w = tgt_arr.shape[1]
-                #gap_thr = max(2, int(0.05 * max(t_w, t_h)))  # 允许小 gap，比例可以调整
-                gap_thr = 4  # 允许小 gap，比例可以调整
+                #gap_thr = max(2, int(0.05 * max(t_w, t_h)))  
+                gap_thr = 4  
 
                 for oid in other_ids:
                     #fidx = rng.randint(1, 24)
@@ -585,7 +583,7 @@ def process_for_object(
                         tgt_bbox_local,
                         o_arr,
                         o_bbox_local,
-                        min_inside_ratio=2 / 5,  # 40% 在画面内
+                        min_inside_ratio=2 / 5,  
                         gap_thr=gap_thr,
                         max_trials=120,
                         rng=rng,
@@ -812,7 +810,7 @@ def main():
     parser.add_argument(
         "--backgrounds",
         type=Path,
-        default=Path("new_datasets_10"),
+        default=Path("Backgrounds_2048"),
         help="Folder containing background JPEGs",
     )
     parser.add_argument(
@@ -839,11 +837,12 @@ def main():
         default=20,
         help="End object id (inclusive)",
     )
-    parser.add_argument("--scale-min", type=float, default=0.4)
-    parser.add_argument("--scale-max", type=float, default=1.0)
+    parser.add_argument("--scale-min", type=float, default=1.2)
+    parser.add_argument("--scale-max", type=float, default=2.0)
     parser.add_argument("--blur-prob", type=float, default=0.4)
     parser.add_argument("--blur-min", type=float, default=0.8)
     parser.add_argument("--blur-max", type=float, default=2.2)
+    parser.add_argument("--max_nums", type=int, default=200)
     parser.add_argument(
         "--rot-prob",
         type=float,
@@ -927,6 +926,7 @@ def main():
             args.rot_prob,
             all_obj_ids,
             rng,
+            max_nums=args.max_nums,
             num_epochs=args.epochs,
         )
 

@@ -97,9 +97,9 @@ class TrainConfig:
 class OnePointObjectDataset(Dataset):
     """Dataset of template images and masks for one object."""
 
-    def __init__(self, data_root: str, training_data: str, object_id: str):
-        self.rgb_dir = os.path.join(data_root, training_data, "rgb", object_id)
-        self.mask_dir = os.path.join(data_root, training_data, "mask", object_id)
+    def __init__(self, data_root: str, object_id: str):
+        self.rgb_dir = os.path.join(data_root, "HOCAP_create_0117", "rgb", object_id)
+        self.mask_dir = os.path.join(data_root, "HOCAP_create_0117", "mask", object_id)
         self.samples = []
         # for ext in [".jpg", ".png", ".jpeg"]:
         #     for path in sorted(glob.glob(os.path.join(self.rgb_dir, f"*{ext}"))):
@@ -167,7 +167,7 @@ def main(cfg: TrainConfig):
     model.sam_mask_decoder.full_mask_tokens.requires_grad = True
 
     # Data
-    dataset = OnePointObjectDataset(cfg.data_root, cfg.training_data ,cfg.object_id)
+    dataset = OnePointObjectDataset(cfg.data_root, cfg.object_id)
     loader = DataLoader(dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.num_workers)
 
     optimizer = torch.optim.AdamW([model.sam_mask_decoder.full_mask_tokens], lr=cfg.lr)
