@@ -5,7 +5,7 @@
 **From Local Matches to Global Masks: Novel Instance Detection in Open-World Scenes**
 
 
-[arXiv](), [Project](https://irvlutd.github.io/L2G/)
+[arXiv](https://arxiv.org/abs/2603.03577), [Project](https://irvlutd.github.io/L2G/)
 
 > Detecting and segmenting novel object instances in open-world environments is a fundamental problem in robotic perception. Given only a small set of template images, a robot must locate and segment a specific object instance in a cluttered, previously unseen scene. Existing proposal-based approaches are highly sensitive to proposal quality and often fail under occlusion and background clutter. We propose L2G-Det, a local-to-global instance detection framework that bypasses explicit object proposals by leveraging dense patch-level matching between templates and the query image. Locally matched patches generate candidate points, which are refined through a candidate selection module to suppress false positives. The filtered points are then used to prompt an augmented Segment Anything Model (SAM) with instance-specific object tokens, enabling reliable reconstruction of complete instance masks. Experiments demonstrate improved performance over proposal-based methods in challenging open-world settings.
 
