@@ -1,4 +1,4 @@
-# adapter.py
+# Candidate.py
 # Select candidate points and apply filtering
 
 import torch
