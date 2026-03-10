@@ -58,7 +58,7 @@ def bce_dice_iou_loss(logits: torch.Tensor, target: torch.Tensor, eps: float = 1
     # --- IoU (Jaccard) loss ---
     iou = 1.0 - (inter + eps) / (sum_p + sum_t - inter + eps)  # per-sample
 
-    # 组合：BCE + mean(Dice) + mean(IoU)
+    #BCE + mean(Dice) + mean(IoU)
     return bce + 0.5*dice.mean() + iou.mean()
 
 def pick_random_interior_point(mask: np.ndarray) -> Tuple[int, int]:
