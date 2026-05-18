@@ -2,7 +2,7 @@
 
 
 
-**From Local Matches to Global Masks: Novel Instance Detection in Open-World Scenes**
+**From Local Matches to Global Masks: Template-Guided Instance Detection and Segmentation in Open-World Scenes**
 
 
 [arXiv](https://arxiv.org/abs/2603.03577), [Project](https://irvlutd.github.io/L2G/)
