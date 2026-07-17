@@ -158,7 +158,8 @@ Run L2G on the Benchmark:
 ```sh
 python run.py --config RoboTools.yaml  #or High_Res.yaml
 
-# then merge results using tools/utils/merge.py. You can download Ground truth files in the following link.
+# then merge results using tools/mergh_RoboTools.sh (or tools/mergh_high.sh for High_Res).
+# You can download Ground truth files in the following link.
 ```
 
 We include the ground truth files and our predictions in this [link](https://utdallas.box.com/s/3cc1gcohdluudc37ezcebf5nj9szdur9). You can run [eval_results.py](tools/eval_results.py) to evaluate them.
