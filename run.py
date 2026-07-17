@@ -30,7 +30,7 @@ from utils.data import count_object_tokens
 from utils.sam_utils import load_object_tokens, postprocess_mask_preserve_format
 from utils.data import load_rgb, load_mask, stride_filter_mask, load_left_groups
 from utils.build import tight_bbox_from_mask, tight_bbox_from_mask_scale
-from utils.build import precompute_left_pe_features, pe_feature_from_pil, build_pe, build_left_batch_all
+from utils.build import precompute_left_pe_features, pe_feature_from_pil, build_pe, build_left_batch_all, precompute_valid_mask_all
 from utils.visualization import save_mask_image_with_bbox
 from utils.image import crop_around_point
 from adapter import load_pe_adapter
@@ -179,6 +179,11 @@ sel_left_all, left_vecs_all, H1_all, W1_all, left_cls_all, left_pe_feats_all,lef
     pe_adapter=pe_adapter,
 )
 
+# valid_mask only depends on the template side (sel_left_all/H1_all/W1_all/M_TARGET), which
+# never changes across query images or scenes, so it's computed once here instead of being
+# redone inside process_one_right_image_all for every single query image.
+valid_mask_all = precompute_valid_mask_all(sel_left_all, H1_all, W1_all, M_TARGET, SEQ_LEN)
+
 for scene_id in range(args.scene_start, args.scene_end + 1):
     print(f"\n===== Processing SCENE : {scene_id} =====")
      # === NEW: scene ===
@@ -191,11 +196,11 @@ for scene_id in range(args.scene_start, args.scene_end + 1):
     for right_path in right_image_list:
         print(f"\n===== Processing Query image: {right_path.name} =====")
         # ---- Load RIGHT image and compute per-axis scale back to original pixels ----
-        right_img_np = np.array(load_rgb(right_path))
+        image_right = load_rgb(right_path)
+        right_img_np = np.array(image_right)
         #print("$$$$$$$$$$$$$$$$$$$$$$$$$$right_img_np.size:",right_img_np.shape)
         if not USE_LOCAL_VIEW:
             predictor.set_image(right_img_np)
-        image_right = load_rgb(right_path)
         image_right_name = right_path.name
         right_resized = resize_transform(image_right).to(device)  # (3,Hr,Wr)
         Hr, Wr = right_resized.shape[-2], right_resized.shape[-1]
@@ -247,6 +252,8 @@ for scene_id in range(args.scene_start, args.scene_end + 1):
             left_pe_feats_all=left_pe_feats_all,
             left_fg_mean_all = left_fg_mean_all,
             cfg=cfg,
+            valid_mask_all=valid_mask_all,
+            image_right_np=right_img_np,
             TOP_DELTA=0.01,
             dedup_rounding=1,
         )
@@ -347,6 +354,7 @@ for scene_id in range(args.scene_start, args.scene_end + 1):
                 image_scale_4, point_coords_used, crop_box = crop_around_point(
                     image_right,
                     point_coords,
+                    image_np=right_img_np,
                 )
                 predictor.set_image(image_scale_4)
             else:
