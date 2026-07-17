@@ -106,6 +106,7 @@ USE_WHICH_FEATURE = cfg["adapter"]["use_which_feature"]
 USE_LOCAL_VIEW = cfg["post_processing"]["use_local_view"]
 USE_FPS_FILTER = cfg["post_processing"]["use_fps_filter"]
 SAVE_IMAGES = cfg["post_processing"]["save_images"]
+LOCAL_VIEW_BATCH_SIZE = cfg["post_processing"].get("local_view_batch_size", 8)
 
 model  = torch.hub.load(REPO_DIR, model=MODEL_NAME, source='local', weights=MODEL_PATH)
 # model = torch.hub.load(
@@ -339,77 +340,114 @@ for scene_id in range(args.scene_start, args.scene_end + 1):
                 all_scores_per_object[b] = S_sel.astype(np.float32, copy=False)   # (k',)
 
         #using the init_state_
+        final_worklist = []
         for b, pts in all_points_per_object.items():
             if len(pts) == 0:
                 continue
-            # scores_arr = np.array(all_scores_per_object[b], dtype=np.float32) 
-            # best_idx = int(np.argmax(scores_arr))
             point_coords = np.array(pts, dtype=np.float32)              # (N,2)
-            #point_coord_best = point_coords[best_idx:best_idx+1]    #(1,2)
             point_coords = np.unique(point_coords, axis=0)
             point_labels = np.ones((len(point_coords),), dtype=np.int32)
-            # print("len(point_coords):",len(point_coords))         
-            # print(f'../SSD2/Dinov3_features/objects_mul_template/rgb/{b+1:06d}')
-            if USE_LOCAL_VIEW:
-                image_scale_4, point_coords_used, crop_box = crop_around_point(
-                    image_right,
-                    point_coords,
-                    image_np=right_img_np,
-                )
-                predictor.set_image(image_scale_4)
-            else:
-                point_coords_used = point_coords
+            final_worklist.append((b, point_coords, point_labels))
 
-            predict_kwargs = dict(
-                point_coords=point_coords_used,
-                point_labels=point_labels,
-                multimask_output=False,
-            )
-
-            if USE_AUGMENTED_PREDICTOR:
-                predict_kwargs["Object_id"] = b + 1
-
-            masks_final, scores_final, logits_final = predictor.predict(**predict_kwargs)
-
-            mask_to_save = masks_final[0] if masks_final.ndim == 3 else masks_final
-            mask_to_save = postprocess_mask_preserve_format(mask_to_save, point_coords, radius=6)
-            # print("#################point_coords:",point_coords)
-            if USE_LOCAL_VIEW:
-                image_to_save = np.array(image_scale_4)
-            else:
-                image_to_save = right_img_np
-            if SAVE_IMAGES:
-                save_mask_image_with_bbox(
-                    image_np=image_to_save,
-                    mask_np=mask_to_save,
-                    point_coords=point_coords_used, 
-                    out_root=OUT_ROOT,
-                    left_index_b=b,
-                    right_path=right_path,
-                    borders=False
-                )
-            # === Write the results of object (b) on the current query image into scene_results ===
-            _m2d = (mask_to_save > 0).astype(np.uint8)
-            if USE_LOCAL_VIEW:
-                _ltbr = tight_bbox_from_mask_scale(_m2d,crop_box=crop_box)
-            else:
-                _ltbr = tight_bbox_from_mask(_m2d)
+        def _emit_result(b, point_coords, mask_to_save, ltbr):
             left_feat_pe_final = left_pe_feats_all[0][b]
             left_feat_pe_final = left_feat_pe_final.to(device)
-            if _ltbr is not None:
-                crop_right_final = image_right.crop(_ltbr).convert("RGB")
-                right_feat_pe_final = pe_feature_from_pil(crop_right_final, model_pe, preprocess_pe, pe_adapter, device)
-                score_final = float(torch.dot(left_feat_pe_final, right_feat_pe_final).item())
-                x0, y0, x1, y1 = map(int, _ltbr)
-                coco_bbox = [x0, y0, int(x1 - x0), int(y1 - y0)]  # COCO [x,y,w,h]
-                scene_results.append({
-                    "file_name": f"{scene_id:06d}/rgb/{right_path.name}",
-                    "category_id": int(b + 1), 
-                    "bbox": coco_bbox,
-                    "score": score_final, 
-                    "image_width": int(image_right.width),
-                    "image_height": int(image_right.height)
-                })
+            if ltbr is None:
+                return
+            crop_right_final = image_right.crop(ltbr).convert("RGB")
+            right_feat_pe_final = pe_feature_from_pil(crop_right_final, model_pe, preprocess_pe, pe_adapter, device)
+            score_final = float(torch.dot(left_feat_pe_final, right_feat_pe_final).item())
+            x0, y0, x1, y1 = map(int, ltbr)
+            coco_bbox = [x0, y0, int(x1 - x0), int(y1 - y0)]  # COCO [x,y,w,h]
+            scene_results.append({
+                "file_name": f"{scene_id:06d}/rgb/{right_path.name}",
+                "category_id": int(b + 1),
+                "bbox": coco_bbox,
+                "score": score_final,
+                "image_width": int(image_right.width),
+                "image_height": int(image_right.height)
+            })
+
+        if USE_LOCAL_VIEW:
+            # Batch the SAM2 image-encoder pass across objects (same fixed crop size per
+            # object -> uniform shape, same as Tier2's candidate-scoring batching in
+            # Candidate.py) instead of calling set_image/predict once per object. The mask
+            # decoder is still invoked once per object inside predict_batch, with that
+            # object's own Object_id, so per-object augmented-SAM masks are unchanged --
+            # only the encoder invocation is batched.
+            for chunk_start in range(0, len(final_worklist), LOCAL_VIEW_BATCH_SIZE):
+                chunk = final_worklist[chunk_start:chunk_start + LOCAL_VIEW_BATCH_SIZE]
+
+                crops = []
+                point_coords_batch = []
+                point_labels_batch = []
+                crop_boxes = []
+                for (b, point_coords, point_labels) in chunk:
+                    image_scale_4, point_coords_used, crop_box = crop_around_point(
+                        image_right,
+                        point_coords,
+                        image_np=right_img_np,
+                    )
+                    crops.append(image_scale_4)
+                    point_coords_batch.append(point_coords_used)
+                    point_labels_batch.append(point_labels)
+                    crop_boxes.append(crop_box)
+
+                predictor.set_image_batch(crops)
+                predict_batch_kwargs = dict(
+                    point_coords_batch=point_coords_batch,
+                    point_labels_batch=point_labels_batch,
+                    multimask_output=False,
+                )
+                if USE_AUGMENTED_PREDICTOR:
+                    predict_batch_kwargs["Object_id_batch"] = [b + 1 for (b, _, _) in chunk]
+
+                masks_batch, scores_batch, logits_batch = predictor.predict_batch(**predict_batch_kwargs)
+
+                for idx, (b, point_coords, point_labels) in enumerate(chunk):
+                    masks_final = masks_batch[idx]
+                    mask_to_save = masks_final[0] if masks_final.ndim == 3 else masks_final
+                    mask_to_save = postprocess_mask_preserve_format(mask_to_save, point_coords, radius=6)
+                    if SAVE_IMAGES:
+                        save_mask_image_with_bbox(
+                            image_np=np.array(crops[idx]),
+                            mask_np=mask_to_save,
+                            point_coords=point_coords_batch[idx],
+                            out_root=OUT_ROOT,
+                            left_index_b=b,
+                            right_path=right_path,
+                            borders=False
+                        )
+                    _m2d = (mask_to_save > 0).astype(np.uint8)
+                    _ltbr = tight_bbox_from_mask_scale(_m2d, crop_box=crop_boxes[idx])
+                    _emit_result(b, point_coords, mask_to_save, _ltbr)
+        else:
+            for (b, point_coords, point_labels) in final_worklist:
+                predict_kwargs = dict(
+                    point_coords=point_coords,
+                    point_labels=point_labels,
+                    multimask_output=False,
+                )
+                if USE_AUGMENTED_PREDICTOR:
+                    predict_kwargs["Object_id"] = b + 1
+
+                masks_final, scores_final, logits_final = predictor.predict(**predict_kwargs)
+
+                mask_to_save = masks_final[0] if masks_final.ndim == 3 else masks_final
+                mask_to_save = postprocess_mask_preserve_format(mask_to_save, point_coords, radius=6)
+                if SAVE_IMAGES:
+                    save_mask_image_with_bbox(
+                        image_np=right_img_np,
+                        mask_np=mask_to_save,
+                        point_coords=point_coords,
+                        out_root=OUT_ROOT,
+                        left_index_b=b,
+                        right_path=right_path,
+                        borders=False
+                    )
+                _m2d = (mask_to_save > 0).astype(np.uint8)
+                _ltbr = tight_bbox_from_mask(_m2d)
+                _emit_result(b, point_coords, mask_to_save, _ltbr)
     out_json_path = Path(f"Output/{DATASET_NAME}/{scene_id:06d}/pred_results_USE_PE_ADAPTER={USE_PE_ADAPTER}_USE_AUGMENTED_SAM={USE_AUGMENTED_PREDICTOR}.json")
     out_json_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_json_path, "w", encoding="utf-8") as f:
