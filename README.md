@@ -185,7 +185,7 @@ bash mergh_high.sh        # High_Resolution: edit SPLIT="hard"/"easy"/"all" at t
 Both scripts finish by calling [eval_results.py](tools/eval_results.py), which can also be run directly once the merged results exist:
 ```sh
 python eval_results.py --dataset RoboTools
-python eval_results.py --dataset High_Res --split hard   # or easy / all
+python eval_results.py --dataset High_Res --split hard   # or "easy" / "all"
 ```
 
 
