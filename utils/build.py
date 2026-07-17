@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
-from .data import load_rgb, load_mask
+from .data import load_rgb, load_mask, stride_filter_mask
 
 
 def build_pe(device):
@@ -213,6 +213,34 @@ def build_left_batch_all(groups, SEQ_LEN, device, IMAGE_SIZE, PATCH_SIZE, mean, 
         del feat_l, cls_l, out_l
 
     return left_pairs_all, left_images_all, left_masks_all, sel_left_all, left_vecs_all, H1_all, W1_all, left_cls_all, left_pe_feats_all, left_fg_mean_all
+
+
+def precompute_valid_mask_all(sel_left_all, H1_all, W1_all, M_TARGET, SEQ_LEN):
+    """
+    Precompute the geometric stride-filter mask ('valid_mask') per (template, object) once.
+
+    stride_filter_mask only depends on the template-side mask selection (sel_left_all)
+    and the template grid size (H1_all/W1_all) plus M_TARGET, all of which are fixed
+    before the query-image loop starts and never change per right/query image. Calling
+    it once here instead of per query image avoids redoing an O(H1+W1) Python loop
+    (with per-element GPU syncs) for every template/object on every single query image.
+    """
+    valid_mask_all = {}
+    for t in range(SEQ_LEN):
+        sel_left_t = sel_left_all[t]      # (B, K_t)
+        H1, W1 = H1_all[t], W1_all[t]
+        B = sel_left_t.shape[0]
+        valid_mask = torch.zeros_like(sel_left_t, dtype=torch.bool)
+        for b in range(B):
+            keep_mask_b, _stride_b = stride_filter_mask(
+                sel_row=sel_left_t[b],
+                H1=H1, W1=W1, m=M_TARGET,
+                keep_edges=False,
+                Filter=True,
+            )
+            valid_mask[b] = keep_mask_b
+        valid_mask_all[t] = valid_mask
+    return valid_mask_all
 
 
 def precompute_left_dino_features(left_images, left_masks, model, mean, std, cfg, device):

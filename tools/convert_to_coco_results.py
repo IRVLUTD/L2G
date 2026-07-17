@@ -45,8 +45,8 @@ def allowed_pairs_from_results_file(results_path: str) -> Set[Tuple[int, int]]:
     return allowed
 
 
-def convert_item(item: dict, scale_value: int = 4) -> dict:
-    image_id = parse_image_id_from_file_name(item["file_name"])
+def convert_item(item: dict, scale_value: int = 4, image_id_offset: int = 0) -> dict:
+    image_id = parse_image_id_from_file_name(item["file_name"]) + image_id_offset
     category_id = int(item["category_id"]) - 1  # Category IDs start from 1; convert to 0-based
 
     out = {
@@ -99,6 +99,9 @@ def main():
                         help="Optional: starting image_id (inclusive) for filtering")
     parser.add_argument("--end_image_id", type=int, default=None,
                         help="Optional: ending image_id (inclusive) for filtering")
+    parser.add_argument("--image_id_offset", type=int, default=0,
+                        help="Constant added to the parsed image_id (e.g., to avoid collisions "
+                             "when merging scene folders whose query-image indices restart at 0).")
 
     args = parser.parse_args()
 
@@ -126,7 +129,7 @@ def main():
             continue
 
         total += 1
-        out = convert_item(item, scale_value=args.scale)
+        out = convert_item(item, scale_value=args.scale, image_id_offset=args.image_id_offset)
 
         # Range filtering (inclusive)
         if args.start_image_id is not None and out["image_id"] < args.start_image_id:

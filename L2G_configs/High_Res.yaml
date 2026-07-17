@@ -63,3 +63,4 @@ post_processing:
   use_local_view: true                          #High-resolution images can use local field of view to improve detection performance.
   use_fps_filter: false                         #Farthest Point Sampling (FPS)
   save_images: false                            #Saving the detection_images
+  local_view_batch_size: 8                      #Batch size for SAM2 image-encoder calls in the local-view candidate loop

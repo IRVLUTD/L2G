@@ -36,6 +36,8 @@ def process_one_right_image_all(
     left_pe_feats_all,              # list[ list[Tensor(C,)|None] ], outer len=SEQ_LEN, inner len=B
     left_fg_mean_all,
     cfg: dict,                      # config
+    valid_mask_all=None,            # dict[t] -> Tensor(B,K_t) bool, precomputed once outside the query-image loop
+    image_right_np=None,            # pre-converted np.ndarray of image_right, reused across all crop_around_point calls
     TOP_DELTA: float = 0.015,
     dedup_rounding: int = 1,        # pixel granularity for cross-template right-image deduplication (1=integer pixel)
 ):
@@ -55,6 +57,7 @@ def process_one_right_image_all(
 
     USE_WHICH_FEATURE = cfg["adapter"]["use_which_feature"]
     USE_LOCAL_VIEW = cfg["post_processing"]["use_local_view"]
+    LOCAL_VIEW_BATCH_SIZE = cfg["post_processing"].get("local_view_batch_size", 8)
 
     print("feat_r.shape:",feat_r.shape)
 
@@ -97,20 +100,10 @@ def process_one_right_image_all(
         # print(f"y2:{y2},x2:{x2}")
         locs_2d_right = (torch.stack((y2, x2), dim=-1) + 0.5) * PATCH_SIZE  # (B,K_t,2)
 
-        # stride sparsification + threshold
-        rows_grid = torch.arange(H1, device=sel_left_t.device).unsqueeze(1).expand(H1, W1).reshape(-1)
-        cols_grid = torch.arange(W1, device=sel_left_t.device).unsqueeze(0).expand(H1, W1).reshape(-1)
-        valid_mask = torch.zeros_like(sel_left_t, dtype=torch.bool)
-
-        for b in range(B):
-            keep_mask_b, stride_b = stride_filter_mask(
-                sel_row=sel_left_t[b],
-                H1=H1, W1=W1, m=M_TARGET,
-                keep_edges=False,
-                rows_grid=rows_grid, cols_grid=cols_grid,
-                Filter=True
-            )
-            valid_mask[b] = keep_mask_b
+        # stride sparsification + threshold: valid_mask only depends on the template side
+        # (sel_left_t/H1/W1/M_TARGET), so it's precomputed once outside the query-image loop
+        # (see utils.build.precompute_valid_mask_all) instead of being redone here every call.
+        valid_mask = valid_mask_all[t]
 
         good = valid_mask & (s1 > S1_THR)  # (B,K_t)
 
@@ -148,85 +141,139 @@ def process_one_right_image_all(
 
         # clean
         del heatmaps, flat, s1, j_best, y2, x2, locs_2d_right, valid_mask, good
-        if device.type == "cuda":
-            torch.cuda.empty_cache()
     """
     2)  Run SAM2 + right-image PE only once for each unique right-image point,
      then distribute the computed score to the candidate pools of the templates that proposed it
     """
-    for b in range(B):
-        cand_dict = unique_pts[b]
-        if not cand_dict:
-            print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: no candidates after merge.")
-            continue
+    if USE_LOCAL_VIEW:
+        # Flatten all (object, unique point) pairs for this query image into one worklist so the
+        # expensive SAM2 image-encoder pass (predictor.set_image -> forward_image) can be batched
+        # via set_image_batch/predict_batch instead of re-run once per point. The mask-decoder math
+        # per point is untouched (predict_batch loops it per-image internally, same as predict()) --
+        # only the encoder invocation is batched.
+        flat_items = []
+        for b in range(B):
+            cand_dict = unique_pts[b]
+            if not cand_dict:
+                print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: no candidates after merge.")
+                continue
+            print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: unique candidates = {len(cand_dict)}")
+            for key, info in cand_dict.items():
+                flat_items.append((b, info["pt"], sorted(info["ts"])))
 
-        print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: unique candidates = {len(cand_dict)}")
+        for chunk_start in range(0, len(flat_items), LOCAL_VIEW_BATCH_SIZE):
+            chunk = flat_items[chunk_start:chunk_start + LOCAL_VIEW_BATCH_SIZE]
 
-        for key, info in cand_dict.items():
-            pt_xy = info["pt"]                 # np.array([x,y], float32)
-            src_ts = sorted(list(info["ts"]))  # Templates that generate / support this candidate point
-
-            # SAM with one point
-            point_coords = pt_xy.reshape(1, 2).astype(np.float32)  # (1,2)
-            point_labels = np.array([1], dtype=np.int32)
-            #print("point_coords:",point_coords)
-
-            if USE_LOCAL_VIEW:
+            crops = []
+            point_coords_batch = []
+            point_labels_batch = []
+            crop_boxes = []
+            for (_b, pt_xy, _src_ts) in chunk:
+                point_coords = pt_xy.reshape(1, 2).astype(np.float32)  # (1,2)
                 image_scale_4, point_coords_scaled, crop_box = crop_around_point(
                     image_right,
                     point_coords,
+                    image_np=image_right_np,
                 )
-                predictor.set_image(image_scale_4)
-                masks_i, scores_i, logits_i = predictor.predict(
-                    point_coords=point_coords_scaled,
-                    point_labels=point_labels,
-                    multimask_output=False,
-                )
-            else:
+                crops.append(image_scale_4)
+                point_coords_batch.append(point_coords_scaled)
+                point_labels_batch.append(np.array([1], dtype=np.int32))
+                crop_boxes.append(crop_box)
+
+            predictor.set_image_batch(crops)
+            masks_batch, scores_batch, logits_batch = predictor.predict_batch(
+                point_coords_batch=point_coords_batch,
+                point_labels_batch=point_labels_batch,
+                multimask_output=False,
+            )
+
+            for idx, (b, pt_xy, src_ts) in enumerate(chunk):
+                masks_i = masks_batch[idx]
+                if masks_i is None or len(masks_i) == 0:
+                    continue
+
+                mask_np_right = masks_i[0] if masks_i.ndim == 3 else masks_i
+                mask_np_right = (mask_np_right > 0).astype(np.uint8)
+                bbox_right = tight_bbox_from_mask_scale(mask_np_right, crop_box=crop_boxes[idx])
+                if bbox_right is None:
+                    continue
+
+                crop_right = image_right.crop(bbox_right).convert("RGB")
+
+                # Right image features (normalized)
+                if USE_WHICH_FEATURE == "pe_feature":
+                    right_feat_pe = pe_feature_from_pil(crop_right, model_pe, preprocess_pe, pe_adapter, device)
+                    for t in src_ts:
+                        left_feat_pe = left_pe_feats_all[t][b]
+                        if left_feat_pe is None:
+                            continue
+                        score = float(torch.dot(left_feat_pe, right_feat_pe).item())
+                        cand_pool[b][t].append( (pt_xy.copy(), score) )
+                elif USE_WHICH_FEATURE == "dino_cls":
+                    right_dino_cls = dino_cls_from_pil(crop_right, model, mean, std, cfg, device)
+                    for t in src_ts:
+                        left_dino_cls = left_cls_all[t][b]
+                        if left_dino_cls is None:
+                            continue
+                        score = float(torch.dot(left_dino_cls, right_dino_cls).item())
+                        cand_pool[b][t].append( (pt_xy.copy(), score) )
+
+            del masks_batch, logits_batch
+    else:
+        for b in range(B):
+            cand_dict = unique_pts[b]
+            if not cand_dict:
+                print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: no candidates after merge.")
+                continue
+
+            print(f"[Right={image_right_name}] [{b+1}/{B}] {names_by_b[b]}: unique candidates = {len(cand_dict)}")
+
+            for key, info in cand_dict.items():
+                pt_xy = info["pt"]                 # np.array([x,y], float32)
+                src_ts = sorted(list(info["ts"]))  # Templates that generate / support this candidate point
+
+                # SAM with one point
+                point_coords = pt_xy.reshape(1, 2).astype(np.float32)  # (1,2)
+                point_labels = np.array([1], dtype=np.int32)
+
                 masks_i, scores_i, logits_i = predictor.predict(
                     point_coords=point_coords,
                     point_labels=point_labels,
                     multimask_output=False,
                 )
-       
-            if masks_i is None or len(masks_i) == 0:
-                continue
 
-            mask_np_right = masks_i[0] if masks_i.ndim == 3 else masks_i
-            mask_np_right = (mask_np_right > 0).astype(np.uint8)
-            if USE_LOCAL_VIEW:
-                bbox_right = tight_bbox_from_mask_scale(mask_np_right,crop_box=crop_box)
-            else:
+                if masks_i is None or len(masks_i) == 0:
+                    continue
+
+                mask_np_right = masks_i[0] if masks_i.ndim == 3 else masks_i
+                mask_np_right = (mask_np_right > 0).astype(np.uint8)
                 bbox_right = tight_bbox_from_mask(mask_np_right)
-            if bbox_right is None:
-                continue
+                if bbox_right is None:
+                    continue
 
+                crop_right = image_right.crop(bbox_right).convert("RGB")
 
-            crop_right = image_right.crop(bbox_right).convert("RGB")
+                # Right image features (normalized)
+                if USE_WHICH_FEATURE == "pe_feature":
+                    right_feat_pe = pe_feature_from_pil(crop_right, model_pe, preprocess_pe, pe_adapter, device)
+                    for t in src_ts:
+                        left_feat_pe = left_pe_feats_all[t][b]
+                        if left_feat_pe is None:
+                            continue
+                        score = float(torch.dot(left_feat_pe, right_feat_pe).item())
+                        cand_pool[b][t].append( (pt_xy.copy(), score) )
+                elif USE_WHICH_FEATURE == "dino_cls":
+                    right_dino_cls = dino_cls_from_pil(crop_right, model, mean, std, cfg, device)
 
-            # Right image features (normalized)
-            if USE_WHICH_FEATURE == "pe_feature":
-                right_feat_pe = pe_feature_from_pil(crop_right, model_pe, preprocess_pe, pe_adapter, device)
-                for t in src_ts:
-                    left_feat_pe = left_pe_feats_all[t][b]
-                    if left_feat_pe is None:
-                        continue
-                    score = float(torch.dot(left_feat_pe, right_feat_pe).item())
-                    cand_pool[b][t].append( (pt_xy.copy(), score) )
-            elif USE_WHICH_FEATURE == "dino_cls":
-                right_dino_cls = dino_cls_from_pil(crop_right, model, mean, std, cfg, device)
+                    for t in src_ts:
+                        left_dino_cls = left_cls_all[t][b]
+                        if left_dino_cls is None:
+                            continue
+                        score = float(torch.dot(left_dino_cls, right_dino_cls).item())
+                        cand_pool[b][t].append( (pt_xy.copy(), score) )
 
-                for t in src_ts:
-                    left_dino_cls = left_cls_all[t][b]
-                    if left_dino_cls is None:
-                        continue
-                    score = float(torch.dot(left_dino_cls, right_dino_cls).item())
-                    cand_pool[b][t].append( (pt_xy.copy(), score) )
-         
-            # clean
-            del masks_i, logits_i
-        if device.type == "cuda":
-            torch.cuda.empty_cache()
+                # clean
+                del masks_i, logits_i
 
 
 

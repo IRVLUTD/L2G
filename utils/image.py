@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def crop_around_point(image_right, point_coords, crop_size=(1536, 2048)):
+def crop_around_point(image_right, point_coords, crop_size=(1536, 2048), image_np=None):
     """
     Crop a fixed-size window around a point, while staying inside image bounds.
 
@@ -10,6 +10,9 @@ def crop_around_point(image_right, point_coords, crop_size=(1536, 2048)):
         image_right: np.ndarray, shape (H, W, 3), original image.
         point_coords: array-like, (2,) or (1, 2) or (N, 2), in (x, y) format in original image.
         crop_size: (crop_h, crop_w), height and width of the crop.
+        image_np: optional pre-converted np.ndarray of image_right (H,W,3). Pass this when
+            calling repeatedly for many points on the same image, to avoid re-converting
+            the (potentially large) PIL image on every call.
 
     Returns:
         image_scale_4: np.ndarray, cropped image of shape (crop_h, crop_w, 3)
@@ -18,7 +21,7 @@ def crop_around_point(image_right, point_coords, crop_size=(1536, 2048)):
         crop_box: (y0, x0, y1, x1) in original image coordinates
     """
     # --- Parse input ---
-    img = np.array(image_right)
+    img = image_np if image_np is not None else np.array(image_right)
     H, W = img.shape[:2]
     crop_h, crop_w = crop_size
 
