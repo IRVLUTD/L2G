@@ -181,16 +181,9 @@ class SAM2ImagePredictor:
         multimask_output: bool = True,
         return_logits: bool = False,
         normalize_coords=True,
-        Object_id_batch: List = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
         """This function is very similar to predict(...), however it is used for batched mode, when the model is expected to generate predictions on multiple images.
         It returns a tuple of lists of masks, ious, and low_res_masks_logits.
-
-        Object_id_batch, if given, must have one entry per image (same length as the batch);
-        each entry is passed through to that image's _predict call exactly like predict()'s
-        Object_id. The mask decoder is still invoked once per image inside this loop (see below),
-        so per-image Object_id values are not a batching hazard -- only set_image_batch's encoder
-        pass is actually batched across images.
         """
         assert self._is_batch, "This function should only be used when in batched mode"
         if not self._is_image_set:
@@ -229,7 +222,6 @@ class SAM2ImagePredictor:
                 multimask_output,
                 return_logits=return_logits,
                 img_idx=img_idx,
-                Object_id=Object_id_batch[img_idx] if Object_id_batch is not None else None,
             )
             masks_np = masks.squeeze(0).float().detach().cpu().numpy()
             iou_predictions_np = (
