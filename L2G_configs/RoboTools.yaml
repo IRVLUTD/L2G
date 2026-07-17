@@ -12,7 +12,7 @@ data:
   mask_fg_threshold: 0.5
   m_target: 10      # number of target patches selected inside mask region
   n_objects: 20
-  template_images_path: "data/Templates/RoboTools_8"
+  template_images_path: "data/Templates/objects_mul_13"
   query_path: "data/Query/RoboTools"
 
 # =========================

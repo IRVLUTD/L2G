@@ -157,12 +157,36 @@ python sample_templates.py --n 8 --datasets RoboTools
 Run L2G on the Benchmark:
 ```sh
 python run.py --config RoboTools.yaml  #or High_Res.yaml
+# --scene-start / --scene-end / --device select which scenes and GPU to run on,
+```
+See [BENCHMARK.md](BENCHMARK.md) for full single-GPU and multi-GPU examples covering all splits.
 
-# then merge results using tools/mergh_RoboTools.sh (or tools/mergh_high.sh for High_Res).
-# You can download Ground truth files in the following link.
+We include the ground truth files and our predictions in this [link](https://utdallas.box.com/s/3cc1gcohdluudc37ezcebf5nj9szdur9). Put them under:
+```
+eval_results/
+├── Ground_Truth/
+│   ├── High_Resolution/
+│   │   ├── scene_gt_coco_hard.json
+│   │   ├── scene_gt_coco_easy.json
+│   │   └── scene_gt_coco_all.json
+│   └── RoboTools/
+│       └── scene_gt_coco_all.json
+└── Results_COCO/          # merged predictions land here
 ```
 
-We include the ground truth files and our predictions in this [link](https://utdallas.box.com/s/3cc1gcohdluudc37ezcebf5nj9szdur9). You can run [eval_results.py](tools/eval_results.py) to evaluate them.
+Then merge the per-scene predictions and evaluate:
+```sh
+cd tools
+
+bash mergh_RoboTools.sh   # RoboTools: merges all 24 scenes, then evaluates
+bash mergh_high.sh        # High_Resolution: edit SPLIT="hard"/"easy"/"all" at the top first
+```
+
+Both scripts finish by calling [eval_results.py](tools/eval_results.py), which can also be run directly once the merged results exist:
+```sh
+python eval_results.py --dataset RoboTools
+python eval_results.py --dataset High_Res --split hard   # or easy / all
+```
 
 
 ### Create the template-based training images
