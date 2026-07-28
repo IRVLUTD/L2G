@@ -215,6 +215,8 @@ Click the following image to watch the video.
 
 ## Acknowledgments
 
+Issues and pull requests are welcome.
+
 This project is based on the following repositories:
 - [Dinov3](https://github.com/facebookresearch/dinov3)
 - [SAM2](https://github.com/facebookresearch/sam2)
